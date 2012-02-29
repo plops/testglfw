@@ -76,7 +76,7 @@
 		 0 0 0 ;; target
 		 0 0 1))
    (gl:translate-f 0 0 0)
-   (gl:rotate-f rot 0 0 1)
+   (gl:rotate-f 30 0 0 1)
    (if (< rot 360)
        (incf rot .3)
        (setf rot 0))
@@ -84,11 +84,11 @@
    (count-fps)
    (gl:line-width 3)
    (gl:color-3f 1 1 1)
-   (gl:enable gl:+lighting+)
+   ;(gl:enable gl:+lighting+)
     (gl:enable gl:+depth-test+)
     (gl:enable gl:+light0+)
     (gl:shade-model gl:+flat+)
-    (gl:light-fv gl:+light0+ gl:+position+ #(2s0 8s0 1.4s0 1s0))
+    (gl:light-fv gl:+light0+ gl:+position+ #(1s0 4s0 2s0 1s0))
     (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ #(0.9 0.9 0.0 1.0))
     #+nil
     (gl:with-push-matrix 
@@ -102,24 +102,58 @@
 	(gl:vertex-2f 1 0)
 	))
     (gl:disable gl:+normalize+)
+    
     (gl:with-push-matrix
-      (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ (make-array 4 :initial-element .7s0 :element-type 'single-float))
-      (gl:translate-f 0 0 .1)
-      (let ((s .5)) (gl:scale-f s s s)
+      (gl:rotate-f rot 0 0 1)
+      (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
+		      (make-array 4 :initial-element .7s0 :element-type 'single-float))
+      
+      (let* ((s 10)
+	     (h 1)
+	     (w 1)
+	     (ww 32)
+	     (hh 32)
+	     (img (make-array (list hh ww) :element-type '(unsigned-byte 8)))
+	     (objs (make-array 1 :element-type '(unsigned-byte 16))))
+	(gl:enable gl:+texture-2d+)
+	(gl:gen-textures (length objs) objs)
+	(gl:bind-texture gl:+texture-2d+ (aref objs 0))
+	#+nil (defparameter *img* (list objs img))
+	(dotimes (i ww)
+	  (dotimes (j hh)
+	    (setf (aref img j i) (if (oddp (* i j)) 0 255))))
+	(sb-sys:with-pinned-objects (img)
+	  (gl:tex-image-2d gl:+texture-2d+ 0 gl:+rgb+ ww hh 0
+			   gl:+luminance+ gl:+unsigned-byte+
+			   (sb-sys:vector-sap 
+			    (sb-ext:array-storage-vector img))))
+	(let ((a (gl:get-error)))
+	  (unless (= a 0)
+	   (format t "get-error: ~a~%" a)))
+	(gl:scale-f s s s)
+	(gl:translate-f (* w -.5) (* h -.5) .1)
+	
 	   (gl:with-begin gl:+quads+
-	     (dotimes (j 20)
+	     (dotimes (j h)
 	       (let ((d -.06
 		      ))
-		 (dotimes (i 20)
+		 (dotimes (i w)
 		   (gl:normal-3f 0 0 s)
+		   (gl:tex-coord-2f 0 0)
 		   (gl:vertex-2f i j)
+		   (gl:tex-coord-2f 0 1)
 		   (gl:vertex-2f i (+ d 1 j))
+		   (gl:tex-coord-2f 1 1)
 		   (gl:vertex-2f (+ d 1 i) (+ d 1 j))
-		   (gl:vertex-2f (+ d 1 i) j)))))))
-    (gl:disable gl:+lighting+)))
+		   (gl:tex-coord-2f 1 0)
+		   (gl:vertex-2f (+ d 1 i) j)))))
+	   (gl:disable gl:+lighting+)
+	   (gl:disable gl:+texture-2d+)
+	   (gl:delete-textures 1 objs)))))
 
 (glfw:do-window (:title "bla" :width 512 :height 512)
     ()
   (when (eql (glfw:get-key glfw:+key-esc+) glfw:+press+)
     (return-from glfw::do-open-window))
   (draw))
+

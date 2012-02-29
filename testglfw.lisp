@@ -90,52 +90,35 @@
     (gl:shade-model gl:+flat+)
     (gl:light-fv gl:+light0+ gl:+position+ #(1s0 4s0 2s0 1s0))
     (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ #(0.9 0.9 0.0 1.0))
-    #+nil
-    (gl:with-push-matrix 
-      (gl:translate-f 0 0 .08)
-      (let ((s 10))
-	(gl:scale-d s s s))
-      (gl:with-begin gl:+quads+
-	(gl:vertex-2f 0 0)
-	(gl:vertex-2f 0 1)
-	(gl:vertex-2f 1 1)
-	(gl:vertex-2f 1 0)))
-    ;(gl:disable gl:+normalize+)
+
+    ;;(gl:disable gl:+normalize+)
     
     (gl:with-push-matrix
       (gl:rotate-f rot 0 0 1)
       (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
-		      (make-array 4 :initial-element 1s0 :element-type 'single-float))
+		      (make-array 4 :initial-element 1s0 
+				  :element-type 'single-float))
       (let* ((s 1)
-	     (h 40)
-	     (w 40)
-	     (ww 256)
-	     (hh 256)
+	     (h 16)
+	     (w 16)
+	     (ww 32)
+	     (hh 32)
 	     (img (make-array (list hh ww) :element-type '(unsigned-byte 8)))
 	     (objs (make-array 1 :element-type '(unsigned-byte 32))))
 	(gl:gen-textures (length objs) objs)
 	(gl:bind-texture gl:+texture-2d+ (aref objs 0))
-	(gl:pixel-store-i gl:+unpack-alignment+ 1)
-	#+nil(gl:tex-parameter-i gl:+texture-2d+
-			    gl:+generate-mipmap-sgis+ gl:+true+)
-	#+nil
-	(unless (glfw:load-texture-2d 
-		 "C:/Users/martin/quicklisp/dists/quicklisp/software/cl-glfw-20110730-git/examples/mipmaps.tga" 
-		 glfw:+build-mipmaps-bit+
-		 )
-	  (break "unable to load texture"))
-	;
+	;;(gl:pixel-store-i gl:+unpack-alignment+ 1)
 	(gl:tex-parameter-i gl:+texture-2d+ 
 			    gl:+texture-min-filter+ gl:+nearest+)
 	(gl:tex-parameter-i gl:+texture-2d+ 
 			    gl:+texture-mag-filter+ gl:+nearest+)
-       (gl:enable gl:+texture-2d+)
-	;(defparameter *img* (list objs img))
+	(gl:enable gl:+texture-2d+)
+	
 	(dotimes (i ww)
 	  (dotimes (j hh)
-	    (setf (aref img j i) (* j (mod i 2)))))
+	    (setf (aref img j i) (* (/ 256 32) j (mod (* i j) 2)))))
 	(sb-sys:with-pinned-objects (img)
-	  (gl:tex-image-2d gl:+texture-2d+ 0 gl:+rgba+ ww hh 0
+	  (gl:tex-image-2d gl:+texture-2d+ 0 gl:+luminance+ ww hh 0
 			   gl:+luminance+ gl:+unsigned-byte+
 			   (sb-sys:vector-sap 
 			    (sb-ext:array-storage-vector img))))
@@ -145,31 +128,24 @@
 	    (format t "get-error: ~a~%" a)))
 	(gl:scale-f s s s)
 	(gl:translate-f (* w -.5) (* h -.5) .1)
-	#+nil
-	(gl:with-begin gl:+quads+
-	  (gl:tex-coord-2f -1.0  1.0) (gl:vertex-3f -50.0 0.0 -50.0)
-	  (gl:tex-coord-2f  1.0  1.0) (gl:vertex-3f  50.0 0.0 -50.0)
-	  (gl:tex-coord-2f  1.0 -1.0) (gl:vertex-3f  50.0 0.0  50.0)
-	  (gl:tex-coord-2f -1.0 -1.0) (gl:vertex-3f -50.0 0.0  50.0))
-	
+
 	(gl:with-begin gl:+quads+
 	  (dotimes (j h)
-	    (let ((d -.2
+	    (let ((d -.02
 		    ))
 	      (dotimes (i w)
 		(labels ((c (a b)
 			   (gl:tex-coord-2f (* a (/ 1s0 w)) 
 					    (* b (/ 1s0 h)))
 			   (gl:vertex-2f a b)))
-		 (gl:normal-3f 0 0 s)
-		 (c i j)
-		 (c i (+ d 1 j))
-		 (c (+ d 1 i) (+ d 1 j))
-		 (c (+ d 1 i) j))))))
+		  (gl:normal-3f 0 0 s)
+		  (c i j)
+		  (c i (+ d 1 j))
+		  (c (+ d 1 i) (+ d 1 j))
+		  (c (+ d 1 i) j))))))
 	(gl:disable gl:+lighting+)
 	(gl:disable gl:+texture-2d+)
-	(gl:delete-textures 1 objs)
-	))))
+	(gl:delete-textures 1 objs)))))
 
 (glfw:do-window (:title "bla" :width 512 :height 512)
     ()

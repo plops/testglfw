@@ -103,7 +103,7 @@
 	     (w 16)
 	     (ww 32)
 	     (hh 32)
-	     (img (make-array (list hh ww) :element-type '(unsigned-byte 8)))
+	     (img (make-array (list hh ww) :element-type '(unsigned-byte 16)))
 	     (objs (make-array 1 :element-type '(unsigned-byte 32))))
 	(gl:gen-textures (length objs) objs)
 	(gl:bind-texture gl:+texture-2d+ (aref objs 0))
@@ -116,10 +116,10 @@
 	
 	(dotimes (i ww)
 	  (dotimes (j hh)
-	    (setf (aref img j i) (* (/ 256 32) j (mod (* i j) 2)))))
+	    (setf (aref img j i) (* (/ (expt 2 16) 32) j (mod (* i j) 2)))))
 	(sb-sys:with-pinned-objects (img)
 	  (gl:tex-image-2d gl:+texture-2d+ 0 gl:+luminance+ ww hh 0
-			   gl:+luminance+ gl:+unsigned-byte+
+			   gl:+luminance+ gl:+unsigned-short+
 			   (sb-sys:vector-sap 
 			    (sb-ext:array-storage-vector img))))
 	

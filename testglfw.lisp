@@ -106,33 +106,37 @@
       (gl:rotate-f rot 0 0 1)
       (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
 		      (make-array 4 :initial-element 1s0 :element-type 'single-float))
-      (let* ((s .5)
+      (let* ((s 1)
 	     (h 40)
 	     (w 40)
 	     (ww 256)
 	     (hh 256)
-	     (img (make-array (list 4 hh ww) :element-type '(unsigned-byte 8)))
-	     (objs (make-array 1 :element-type '(unsigned-byte 64))))
+	     (img (make-array (list hh ww) :element-type '(unsigned-byte 8)))
+	     (objs (make-array 1 :element-type '(unsigned-byte 32))))
+	(gl:gen-textures (length objs) objs)
+	(gl:bind-texture gl:+texture-2d+ (aref objs 0))
+	(gl:pixel-store-i gl:+unpack-alignment+ 1)
+	#+nil(gl:tex-parameter-i gl:+texture-2d+
+			    gl:+generate-mipmap-sgis+ gl:+true+)
+	#+nil
 	(unless (glfw:load-texture-2d 
 		 "C:/Users/martin/quicklisp/dists/quicklisp/software/cl-glfw-20110730-git/examples/mipmaps.tga" 
-		 glfw:+build-mipmaps-bit+)
+		 glfw:+build-mipmaps-bit+
+		 )
 	  (break "unable to load texture"))
-	(gl:pixel-store-i gl:+unpack-alignment+ 1)
-	;(gl:gen-textures (length objs) objs)
-	;(gl:bind-texture gl:+texture-2d+ (aref objs 0))
-	(gl:tex-parameter-i gl:+texture-2d+ gl:+texture-min-filter+ gl:+linear-mipmap-linear+)
-       (gl:tex-parameter-i gl:+texture-2d+ gl:+texture-mag-filter+ gl:+linear+)
+	;
+	(gl:tex-parameter-i gl:+texture-2d+ 
+			    gl:+texture-min-filter+ gl:+nearest+)
+	(gl:tex-parameter-i gl:+texture-2d+ 
+			    gl:+texture-mag-filter+ gl:+nearest+)
        (gl:enable gl:+texture-2d+)
 	;(defparameter *img* (list objs img))
 	(dotimes (i ww)
 	  (dotimes (j hh)
-	    (setf (aref img 0 j i) (if (oddp (* i j)) i 255)
-		  (aref img 1 j i) (if (oddp (* i j)) j 255)
-		  (aref img 2 j i) (if (oddp (* i j)) 0 255)
-		  (aref img 3 j i) (if (oddp (* i j)) 0 255))))
+	    (setf (aref img j i) (* j (mod i 2)))))
 	(sb-sys:with-pinned-objects (img)
 	  (gl:tex-image-2d gl:+texture-2d+ 0 gl:+rgba+ ww hh 0
-			   gl:+rgba+ gl:+unsigned-byte+
+			   gl:+luminance+ gl:+unsigned-byte+
 			   (sb-sys:vector-sap 
 			    (sb-ext:array-storage-vector img))))
 	
@@ -150,11 +154,12 @@
 	
 	(gl:with-begin gl:+quads+
 	  (dotimes (j h)
-	    (let ((d 0 ;-.2
+	    (let ((d -.2
 		    ))
 	      (dotimes (i w)
 		(labels ((c (a b)
-			   (gl:tex-coord-2f (* a (/ 1s0 w)) (* b (/ 1s0 h)))
+			   (gl:tex-coord-2f (* a (/ 1s0 w)) 
+					    (* b (/ 1s0 h)))
 			   (gl:vertex-2f a b)))
 		 (gl:normal-3f 0 0 s)
 		 (c i j)
@@ -163,7 +168,7 @@
 		 (c (+ d 1 i) j))))))
 	(gl:disable gl:+lighting+)
 	(gl:disable gl:+texture-2d+)
-	;(gl:delete-textures 1 objs)
+	(gl:delete-textures 1 objs)
 	))))
 
 (glfw:do-window (:title "bla" :width 512 :height 512)

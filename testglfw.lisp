@@ -120,10 +120,10 @@
 	  (dotimes (j hh)
 	    (setf (aref img j i) (* (/ (expt 2 16) 32) j (mod (* i j) 2)))))
 	;; (defparameter *rend* (gl:get-string gl:+renderer+))
-	(gl:matrix-mode gl:+color-matrix-sgi+
-	 )
-	; (gl:load-identity)
-	(gl:matrix-mode gl:+modelview+)
+	;(gl:matrix-mode gl:+color-matrix-sgi+)
+	;(gl:scale-f .1 .1 .1)
+	;(gl:load-identity)
+	;(gl:matrix-mode gl:+modelview+)
 
 	(sb-sys:with-pinned-objects (img)
 	  (gl:tex-image-2d gl:+texture-2d+ 0 gl:+luminance+ ww hh 0
@@ -153,7 +153,7 @@
 					    (* b (/ 1s0 h)))
 			   (gl:vertex-2f a b)))
 		  (gl:normal-3f 0 0 s)
-		  (c i j)
+`		  (c i j)
 		  (c i (+ d 1 j))
 		  (c (+ d 1 i) (+ d 1 j))
 		  (c (+ d 1 i) j))))))

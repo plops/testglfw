@@ -3,6 +3,8 @@
   (require :cl-glfw-opengl-version_1_1)
   (require :cl-glfw-glu))
 
+
+
 (defun draw-grid ()
   (let ((g 110)
 	(e 20))
@@ -117,6 +119,12 @@
 	(dotimes (i ww)
 	  (dotimes (j hh)
 	    (setf (aref img j i) (* (/ (expt 2 16) 32) j (mod (* i j) 2)))))
+	;; (defparameter *rend* (gl:get-string gl:+renderer+))
+	(gl:matrix-mode gl:+color-matrix-sgi+
+	 )
+	; (gl:load-identity)
+	(gl:matrix-mode gl:+modelview+)
+
 	(sb-sys:with-pinned-objects (img)
 	  (gl:tex-image-2d gl:+texture-2d+ 0 gl:+luminance+ ww hh 0
 			   gl:+luminance+ gl:+unsigned-short+
@@ -128,6 +136,12 @@
 	    (format t "get-error: ~a~%" a)))
 	(gl:scale-f s s s)
 	(gl:translate-f (* w -.5) (* h -.5) .1)
+	
+	#+nil
+	(progn
+	 (gl-ext:scan-available-extensions)
+	 (defparameter *bla* (gl-ext:available-extensions))
+	 (defparameter *bla2* (gl:get-string gl:+extensions+)))
 
 	(gl:with-begin gl:+quads+
 	  (dotimes (j h)

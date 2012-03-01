@@ -118,11 +118,11 @@
 	
 	(dotimes (i ww)
 	  (dotimes (j hh)
-	    (setf (aref img j i) (* (/ (expt 2 16) 32) j (mod (* i j) 2)))))
+	    (setf (aref img j i) (* (/ (expt 2 8) 32) j (mod (* i j) 2)))))
 
 	(gl:matrix-mode gl:+color+)
 	(gl:load-identity)
-	(gl:scale-f .1 .1 .1)
+	(gl:scale-f 253 .1 .1)
 	(gl:matrix-mode gl:+modelview+)
 
 	(sb-sys:with-pinned-objects (img)
@@ -145,7 +145,7 @@
 
 	(gl:with-begin gl:+quads+
 	  (dotimes (j h)
-	    (let ((d -.02
+	    (let ((d -.1s0
 		    ))
 	      (dotimes (i w)
 		(labels ((c (a b)
@@ -153,7 +153,7 @@
 					    (* b (/ 1s0 h)))
 			   (gl:vertex-2f a b)))
 		  (gl:normal-3f 0 0 s)
-`		  (c i j)
+		  (c i j)
 		  (c i (+ d 1 j))
 		  (c (+ d 1 i) (+ d 1 j))
 		  (c (+ d 1 i) j))))))

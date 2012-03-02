@@ -117,16 +117,31 @@
        (unless (= a 0)
 	 (format t "get-error: ~a~%" a))))))
 
-(defun draw-quads (&key select w h)
-  (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
-		      (make-array 4 :initial-element 1s0 
-				  :element-type 'single-float))
+;; store the position of the quad in a 32bit number
+(defun encode-pick-name (x y)
+  (logior (ash x 16)
+	  y))
+
+(defun decode-pick-name-x (p)
+  (ldb (byte 16 16) p))
+
+(defun decode-pick-name-y (p)
+  (ldb (byte 16 0) p))
+
+(defun draw-quads (&key select w h x y)
   (dotimes (j h)
     (let ((d  -.1s0
 	    ))
       (dotimes (i w)
 	(when select
-	  (gl:load-name (+ 27 i (* w j))))
+	  (gl:load-name (encode-pick-name i j)))
+	(if (and x y (= x i) (= y j))
+	  (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
+			  (make-array 4 :initial-contents '(1s0 0s0 0s0 1s0) 
+				      :element-type 'single-float))
+	  (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
+			  (make-array 4 :initial-contents '(1s0 1s0 1s0 1s0) 
+				      :element-type 'single-float)))
 	(gl:with-begin gl:+quads+
 	  (labels ((c (a b)
 		     (unless select
@@ -176,7 +191,7 @@
     (init-gl-state)
     (draw-grid)
     
-    (incf rot .1)
+    ;   (incf rot .1)
     (if (< 360 rot)
 	(setf rot 0))
     
@@ -191,34 +206,36 @@
       
       (set-view3d :select t)
 
-      (gl:with-push-matrix
-	(gl:rotate-f rot 0 0 1)
-	(gl:translate-f (* w -.5) (* h -.5) .1)
-	(let* ((n (* w h))
-	       (sel (make-array (* ; n, min-depth, max-depth, name
-				 4 n)
-				:element-type '(unsigned-byte 32))))
-	  (sb-sys:with-pinned-objects (sel)
-	    (gl:select-buffer (length sel) (sb-sys:vector-sap sel))
-	    (gl:render-mode gl:+select+)
-	    (gl:init-names)
-	    (gl:push-name 11111111) ;; name stack must contain one value
-	    (draw-quads :select t :w w :h h)
-	    (gl:pop-name)
-	    (let ((sn (gl:render-mode gl:+render+)))
-	      (defparameter *bla* (list sn sel))
-	      (format t "sn ~a~%" (list sn (aref sel 3) (random 3)))
-	      ))))
-      
-      
-      (upload-texture hh ww)
-      (set-view3d :select t)
-      (gl:with-push-matrix 
-	(gl:rotate-f rot 0 0 1)
-	;(gl:scale-f s s s)
-	(gl:translate-f (* w -.5) (* h -.5) .1)
-	(gl:render-mode gl:+render+)
-	(draw-quads :select nil :w w :h h))
+      (let ((sx 0)
+	    (sy 1))
+       (gl:with-push-matrix
+	 (gl:rotate-f rot 0 0 1)
+	 (gl:translate-f (* w -.5) (* h -.5) .1)
+	 (let* ((n (* w h))
+		(sel (make-array (*    ; n, min-depth, max-depth, name
+				  4 n)
+				 :element-type '(unsigned-byte 32))))
+	   (sb-sys:with-pinned-objects (sel)
+	     (gl:select-buffer (length sel) (sb-sys:vector-sap sel))
+	     (gl:render-mode gl:+select+)
+	     (gl:init-names)
+	     (gl:push-name 11111111) ;; name stack must contain one value
+	     (draw-quads :select t :w w :h h)
+	     (gl:pop-name)
+	     (let ((sn (gl:render-mode gl:+render+)))
+	       (when (< 0 sn)
+		 (setf sx (decode-pick-name-x (aref sel 3))
+		       sy (decode-pick-name-y (aref sel 3))))))))
+       
+       
+       (upload-texture hh ww)
+       (set-view3d :select nil)
+       (gl:with-push-matrix 
+	 (gl:rotate-f rot 0 0 1)
+					;(gl:scale-f s s s)
+	 (gl:translate-f (* w -.5) (* h -.5) .1)
+	 (gl:render-mode gl:+render+)
+	 (draw-quads :select nil :w w :h h :x sx :y sy)))
       
       )))
 

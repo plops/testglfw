@@ -45,12 +45,16 @@
 (let ((t1 0d0)
       (t0 0d0)
       (frames 0))
- (defun count-fps ()
-   (setf t1 (glfw:get-time))
-   (when (or (< 1 (- t1 t0))
-	     (= frames 0))
-     (glfw:set-window-title (format nil "bla ~,1f FPS"
-				    (/ frames (- t1 t0))))
+  (defun reset-fps-counter ()
+    (setf frames 0))
+  (defun count-fps ()
+    (setf t1 (glfw:get-time))
+    (when (or (< 1 (- t1 t0))
+	      (= frames 0))
+      (glfw:set-window-title (format nil "bla ~,1f FPS"
+				     (if (< (- t1 t0) 1e-6)
+					 0s0
+					 (/ frames (- t1 t0)))))
      (setf frames 0
 	   t0 t1))
    (incf frames)))
@@ -123,7 +127,7 @@
       (set-int nil))
   (defun draw ()
     (unless set-int
-      (glfw:swap-interval 0)
+      (glfw:swap-interval 1)
       (setf set-int t))
     ;(sleep (/ .9 30))
     (destructuring-bind (w h) (glfw:get-window-size)
@@ -134,10 +138,13 @@
       (gl:matrix-mode gl:+projection+)
       (gl:load-identity)
       ;(glu:perspective 65 (/ w h) 1 100)
-      
+      (destructuring-bind (x y) (glfw:get-mouse-pos)
+       (gl:translate-f (* (/ 2 w) (- x (* .5 w)) ) 
+		       (* (/ 2 h) (- (* .5 h ) y))
+		       0))
       (let* ((znear 5s0)
 	     (zfar 100s0) 
-	     (x (* .5s0 znear)))
+	     (x (* .5 znear)))
 	
 	(let ((l (- x))
 	      (r x)
@@ -146,16 +153,16 @@
 #+nil	  (let ((s 5))
 	   (gl:ortho (* s l) (* s r) (* s tt) (* s b) znear zfar))
 	  (gl:frustum l r tt b znear zfar)))
+      
       (gl:matrix-mode gl:+modelview+)
       (gl:load-identity)
       ;(gl:translate-f 0 0 -6)
-      
       (glu:look-at 10 20 14 ;; camera
-		   0 0 0   ;; target
+		   0 0 0 ;; target
 		   0 0 -1))
     
     (draw-grid)
-    (incf rot)
+    (incf rot .1)
     (if (< 360 rot)
 	(setf rot 0))
     
@@ -187,7 +194,7 @@
 	(gl:render-mode gl:+render+)
 	(draw-quads :select nil :w w :h h)
 	
-	(progn
+	#+nil(progn
 	  (let* ((n (* w h))
 		 (sel (make-array (* ; n, min-depth, max-depth, n names
 				   4 n)
@@ -196,7 +203,7 @@
 	     (gl:select-buffer (length sel) (sb-sys:vector-sap sel))
 	     (gl:render-mode gl:+select+)
 	     (gl:init-names)
-	     (gl:push-name 11111111) ;; stack must contain one value
+	     (gl:push-name 11111111) ;; name stack must contain one value
 	     (draw-quads :select t :w w :h h)
 	     (gl:pop-name)
 	     (let ((sn (gl:render-mode gl:+render+)))
@@ -208,10 +215,11 @@
 
 	))))
 
-
-(glfw:do-window (:title "bla" :width 512 :height 512)
-    ()
-  (when (eql (glfw:get-key glfw:+key-esc+) glfw:+press+)
-    (return-from glfw::do-open-window))
-  (draw))
+(progn
+  (reset-fps-counter)
+ (glfw:do-window (:title "bla" :width 512 :height 512)
+     ()
+   (when (eql (glfw:get-key glfw:+key-esc+) glfw:+press+)
+     (return-from glfw::do-open-window))
+   (draw)))
 

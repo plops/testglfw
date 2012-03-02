@@ -148,12 +148,11 @@
     
     (destructuring-bind (x y) (glfw:get-mouse-pos)
       (when select
-	(gl:translate-f (* (/ 2 w) (- x (* .5 w)) ) 
-			(* (/ 2 h) (- (* .5 h ) y))
-			0)))
-    (glu:perspective (if select
-		       65
-		       65) (/ w h) 1 100)
+	(let ((v (make-array 4 :element-type '(signed-byte 32)
+			     :initial-contents (list 0 0 w h))))
+	  (sb-sys:with-pinned-objects (v)
+	   (glu:pick-matrix x (- h y) 1 1 (sb-sys:vector-sap v)))))
+      (glu:perspective 65 (/ w h) 1 100))
        
     (gl:matrix-mode gl:+modelview+)
     (gl:load-identity)

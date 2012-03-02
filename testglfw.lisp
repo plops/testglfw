@@ -7,6 +7,8 @@
 
 
 (defun draw-grid ()
+  (gl:disable gl:+lighting+)
+  (gl:disable gl:+texture-2d+)
   (let ((g 110)
 	(e 20))
     (gl:color-3ub g g g)
@@ -40,7 +42,10 @@
    (gl:with-begin gl:+lines+
      (gl:color-3ub 150 80 30) (gl:vertex-3f 0 0 0) (gl:vertex-3f 5 0 0)
      (gl:color-3ub 100 150 30) (gl:vertex-3f 0 0 0) (gl:vertex-3f 0 5 0)
-     (gl:color-3ub 20 100 155) (gl:vertex-3f 0 0 0) (gl:vertex-3f 0 0 5)))
+     (gl:color-3ub 20 100 155) (gl:vertex-3f 0 0 0) (gl:vertex-3f 0 0 5))
+   (gl:color-3ub 255 255 255)
+   (gl:enable gl:+lighting+)
+   (gl:enable gl:+texture-2d+))
 
 (let ((t1 0d0)
       (t0 0d0)
@@ -66,6 +71,15 @@
     (loop for (x y z) in '((0 0 1) (0 1 0) (1 0 0)
 			   (1 1 1) (0 0 1) (0 1 0)) do
 	 (gl:vertex-3f x y z))))
+
+(defun init-gl-state ()
+  (gl:enable gl:+lighting+)
+  (gl:enable gl:+depth-test+)
+  (gl:enable gl:+light0+)
+  (gl:shade-model gl:+flat+)
+  (gl:light-fv gl:+light0+ gl:+position+ #(1s0 4s0 2s0 1s0))
+  (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ #(0.9 0.9 0.0 1.0))
+  (gl:enable gl:+normalize+))
 
 (let ((objs nil))
  (defun upload-texture (h w)
@@ -104,24 +118,23 @@
 	 (format t "get-error: ~a~%" a))))))
 
 (defun draw-quads (&key select w h)
-  (progn ;gl:with-begin gl:+quads+
-    (dotimes (j h)
-      (let ((d  -.1s0
-	      ))
-	(dotimes (i w)
-	  (when select
-	    (gl:load-name (+ 27 i (* w j))))
-	  (gl:with-begin gl:+quads+
-	   (labels ((c (a b)
-		      (unless select
-			(gl:tex-coord-2f (* a (/ 1s0 w)) 
-					 (* b (/ 1s0 h))))
-		      (gl:vertex-2f a b)))
-	     (gl:normal-3f 0 0 1)
-	     (c i j)
-	     (c i (+ d 1 j))
-	     (c (+ d 1 i) (+ d 1 j))
-	     (c (+ d 1 i) j))))))))
+  (dotimes (j h)
+    (let ((d  -.1s0
+	    ))
+      (dotimes (i w)
+	(when select
+	  (gl:load-name (+ 27 i (* w j))))
+	(gl:with-begin gl:+quads+
+	  (labels ((c (a b)
+		     (unless select
+		       (gl:tex-coord-2f (* a (/ 1s0 w)) 
+					(* b (/ 1s0 h))))
+		     (gl:vertex-2f a b)))
+	    (gl:normal-3f 0 0 1)
+	    (c i j)
+	    (c i (+ d 1 j))
+	    (c (+ d 1 i) (+ d 1 j))
+	    (c (+ d 1 i) j)))))))
 
 (let ((rot 0)
       (set-int nil))
@@ -145,39 +158,27 @@
       (let* ((znear 5s0)
 	     (zfar 100s0) 
 	     (x (* .5 znear)))
-	
 	(let ((l (- x))
 	      (r x)
 	      (b (* -1 (/ h w) x))
 	      (tt  (* (/ h w) x)))
-#+nil	  (let ((s 5))
-	   (gl:ortho (* s l) (* s r) (* s tt) (* s b) znear zfar))
 	  (gl:frustum l r tt b znear zfar)))
       
       (gl:matrix-mode gl:+modelview+)
       (gl:load-identity)
-      ;(gl:translate-f 0 0 -6)
+
       (glu:look-at 10 20 14 ;; camera
 		   0 0 0 ;; target
 		   0 0 -1))
-    
+    (init-gl-state)
     (draw-grid)
+    
     (incf rot .1)
     (if (< 360 rot)
 	(setf rot 0))
     
     (count-fps)
-    (gl:line-width 3)
-    (gl:color-3f 1 1 1)
-    (gl:enable gl:+lighting+)
-    (gl:enable gl:+depth-test+)
-    (gl:enable gl:+light0+)
-    (gl:shade-model gl:+flat+)
-    (gl:light-fv gl:+light0+ gl:+position+ #(1s0 4s0 2s0 1s0))
-    (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ #(0.9 0.9 0.0 1.0))
-
-    (gl:enable gl:+normalize+)
-
+    
     (gl:with-push-matrix
       (gl:rotate-f rot 0 0 1)
       (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
@@ -185,7 +186,7 @@
 				  :element-type 'single-float))
       (let* ((s 1)
 	     (h 16)
-	      (w 16)
+	     (w 16)
 	     (ww 32)
 	     (hh 32)) 
 	(upload-texture hh ww)
@@ -194,7 +195,7 @@
 	(gl:render-mode gl:+render+)
 	(draw-quads :select nil :w w :h h)
 	
-	#+nil(progn
+	(progn
 	  (let* ((n (* w h))
 		 (sel (make-array (* ; n, min-depth, max-depth, n names
 				   4 n)
@@ -207,13 +208,7 @@
 	     (draw-quads :select t :w w :h h)
 	     (gl:pop-name)
 	     (let ((sn (gl:render-mode gl:+render+)))
-	       (defparameter *bla* (list sn sel))))))
-	
-	
-	(gl:disable gl:+lighting+)
-	(gl:disable gl:+texture-2d+)
-
-	))))
+	       (defparameter *bla* (list sn sel))))))))))
 
 (progn
   (reset-fps-counter)

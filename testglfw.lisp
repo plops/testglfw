@@ -118,6 +118,9 @@
 	 (format t "get-error: ~a~%" a))))))
 
 (defun draw-quads (&key select w h)
+  (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
+		      (make-array 4 :initial-element 1s0 
+				  :element-type 'single-float))
   (dotimes (j h)
     (let ((d  -.1s0
 	    ))
@@ -136,40 +139,38 @@
 	    (c (+ d 1 i) (+ d 1 j))
 	    (c (+ d 1 i) j)))))))
 
+(defun set-view3d ()
+  (destructuring-bind (w h) (glfw:get-window-size)
+    (setf h (max h 1))
+    (gl:viewport 0 0 w h)
+    (gl:matrix-mode gl:+projection+)
+    (gl:load-identity)
+    
+    (destructuring-bind (x y) (glfw:get-mouse-pos)
+      (gl:translate-f (* (/ 2 w) (- x (* .5 w)) ) 
+		      (* (/ 2 h) (- (* .5 h ) y))
+		      0))
+    (glu:perspective 65 (/ w h) 1 100)
+       
+    (gl:matrix-mode gl:+modelview+)
+    (gl:load-identity)
+    
+    (glu:look-at 10 20 14 ;; camera
+		 0 0 0 ;; target
+		 0 0 1)))
+
 (let ((rot 0)
       (set-int nil))
   (defun draw ()
+    (gl:clear-color .0 .2 .2 1)
+    (gl:clear (logior gl:+color-buffer-bit+ gl:+depth-buffer-bit+))
+    
     (unless set-int
       (glfw:swap-interval 1)
       (setf set-int t))
-    ;(sleep (/ .9 30))
-    (destructuring-bind (w h) (glfw:get-window-size)
-      (setf h (max h 1))
-      (gl:viewport 0 0 w h)
-      (gl:clear-color .0 .2 .2 1)
-      (gl:clear (logior gl:+color-buffer-bit+ gl:+depth-buffer-bit+))
-      (gl:matrix-mode gl:+projection+)
-      (gl:load-identity)
-      ;(glu:perspective 65 (/ w h) 1 100)
-      (destructuring-bind (x y) (glfw:get-mouse-pos)
-       (gl:translate-f (* (/ 2 w) (- x (* .5 w)) ) 
-		       (* (/ 2 h) (- (* .5 h ) y))
-		       0))
-      (let* ((znear 5s0)
-	     (zfar 100s0) 
-	     (x (* .5 znear)))
-	(let ((l (- x))
-	      (r x)
-	      (b (* -1 (/ h w) x))
-	      (tt  (* (/ h w) x)))
-	  (gl:frustum l r tt b znear zfar)))
-      
-      (gl:matrix-mode gl:+modelview+)
-      (gl:load-identity)
-
-      (glu:look-at 10 20 14 ;; camera
-		   0 0 0 ;; target
-		   0 0 -1))
+    
+    (set-view3d)
+  
     (init-gl-state)
     (draw-grid)
     
@@ -181,34 +182,36 @@
     
     (gl:with-push-matrix
       (gl:rotate-f rot 0 0 1)
-      (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
-		      (make-array 4 :initial-element 1s0 
-				  :element-type 'single-float))
+      
       (let* ((s 1)
 	     (h 16)
 	     (w 16)
 	     (ww 32)
 	     (hh 32)) 
-	(upload-texture hh ww)
-	(gl:scale-f s s s)
-	(gl:translate-f (* w -.5) (* h -.5) .1)
-	(gl:render-mode gl:+render+)
-	(draw-quads :select nil :w w :h h)
 	
 	(progn
 	  (let* ((n (* w h))
-		 (sel (make-array (* ; n, min-depth, max-depth, n names
+		 (sel (make-array (* ; n, min-depth, max-depth, name
 				   4 n)
 				  :element-type '(unsigned-byte 32))))
 	    (sb-sys:with-pinned-objects (sel)
-	     (gl:select-buffer (length sel) (sb-sys:vector-sap sel))
+	      (gl:select-buffer (length sel) (sb-sys:vector-sap sel))
 	     (gl:render-mode gl:+select+)
 	     (gl:init-names)
 	     (gl:push-name 11111111) ;; name stack must contain one value
 	     (draw-quads :select t :w w :h h)
 	     (gl:pop-name)
 	     (let ((sn (gl:render-mode gl:+render+)))
-	       (defparameter *bla* (list sn sel))))))))))
+	       (defparameter *bla* (list sn sel))))))
+	
+
+	(upload-texture hh ww)
+	(gl:scale-f s s s)
+	(gl:translate-f (* w -.5) (* h -.5) .1)
+	(gl:render-mode gl:+render+)
+	(draw-quads :select nil :w w :h h)
+	
+	))))
 
 (progn
   (reset-fps-counter)

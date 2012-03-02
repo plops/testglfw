@@ -128,8 +128,8 @@
 (defun decode-pick-name-y (p)
   (ldb (byte 16 0) p))
 
-(defun draw-quads (&key select w h x y)
-  "if x and y are defined an indicator is drawn around the quad"
+(defun draw-quads (&key select w h emph)
+  "if emph is a list of (x y) emphasize these"
   (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
 		  (make-array 4 :initial-contents '(1s0 1s0 1s0 1s0) 
 			      :element-type 'single-float))
@@ -160,15 +160,18 @@
     (unless select
       (gl:end))
     (when (and (not select)
-	       x y) ;; draw selection indicator
+	       emph
+	       (car emph)) ;; draw selection indicator
       (gl:disable gl:+lighting+)
       (gl:disable gl:+texture-2d+)
       (gl:color-3f 0 1 0)
-      (gl:with-begin gl:+line-loop+
-	(c x y)
-	(c x (+ y 1))
-	(c (+ 1 x) (+ 1 y))
-	(c (+ 1 x) y))
+      (dolist (e emph)
+	(destructuring-bind (x y) e
+	  (gl:with-begin gl:+line-loop+
+	    (c x y)
+	    (c x (+ y 1))
+	    (c (+ 1 x) (+ 1 y))
+	    (c (+ 1 x) y))))
       (gl:color-3f 1 1 1)
       (gl:enable gl:+lighting+)
       (gl:enable gl:+texture-2d+))))
@@ -195,8 +198,17 @@
 		 0 0 0 ;; target
 		 0 0 1)))
 
+(defparameter *current-quad* nil)
+(defparameter *emph-quad-list* nil)
+
+(defun mouse-button-callback (button action)
+  (when (= action 0)
+    (push *current-quad* *emph-quad-list*))
+  (format t "~a~%" (list button (eq button 'left) action *current-quad*)))
+
 (let ((rot 0)
-      (set-int nil))
+      (set-int nil)
+      (mouse-cb nil))
   (defun draw ()
     (gl:clear-color .0 .2 .2 1)
     (gl:clear (logior gl:+color-buffer-bit+ gl:+depth-buffer-bit+))
@@ -205,12 +217,13 @@
       (glfw:swap-interval 1)
       (setf set-int t))
     
-    
+    (unless mouse-cb
+      (glfw:set-mouse-button-callback 'mouse-button-callback))
   
     (init-gl-state)
     (draw-grid)
     
-    ;(incf rot .1)
+    (incf rot 0)
     (if (< 360 rot)
 	(setf rot 0))
     
@@ -218,12 +231,11 @@
 
 
     (let* ((s 1)
-	   (h 20)
-	   (w 10)
-	   (ww 20)
-	   (hh 40)) 
-      (let ((sx nil)
-	    (sy nil))
+	   (w 32)
+	   (h 24)
+	   (ww 320)
+	   (hh 240)) 
+      (let ((mpos nil))
       	(gl:with-push-matrix
 	  (set-view3d :select t)
 	  (gl:rotate-f rot 0 0 1)
@@ -244,9 +256,11 @@
 		(when (< sn 0)
 		  (break "problem with select. maybe too many objects"))
 		(when (< 0 sn)
-		  (setf sx (decode-pick-name-x (aref sel 3))
-			sy (decode-pick-name-y (aref sel 3))))))))
-       
+		  (setf mpos (list (decode-pick-name-x (aref sel 3))
+				   (decode-pick-name-y (aref sel 3)))))))))
+	
+	(when mpos
+	  (setf *current-quad* mpos))
        
 	(upload-texture hh ww)
 	(set-view3d :select nil)
@@ -254,7 +268,8 @@
 	  (gl:rotate-f rot 0 0 1)
 	  (gl:scale-f s s s)
 	  (gl:translate-f (* w -.5) (* h -.5) .1)
-	  (draw-quads :select nil :w w :h h :x sx :y sy))))))
+	  (draw-quads :select nil :w w :h h :emph (when mpos
+						    (append (list mpos) *emph-quad-list* ))))))))
 
 (progn
   (reset-fps-counter)

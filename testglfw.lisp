@@ -115,16 +115,24 @@
       (gl:load-identity)
       ;(glu:perspective 65 (/ w h) 1 100)
       
-      (let ((x 10s0))
+      (let* ((znear 5s0)
+	     (zfar 30s0) 
+	     (x (* .5s0 znear)))
 ;	(gl:ortho (- 5 x) (+ 5 x) (- x) x -10 10)
-;	(gl:frustum (- x) x (- x) x -10 10)
-	(gl:load-matrix-f
+	(let ((l (- x))
+	       (r x)
+	       (b (* -1 (/ h w) x))
+	       (tt  (* (/ h w) x))
+	       (n znear)
+	       (f zfar))
+	  (gl:frustum l r tt b znear zfar))
+#+nil	(gl:load-matrix-f
 	 (let ((l (- x))
 	       (r x)
-	       (b (- x))
-	       (tt x)
-	       (n 0s0)
-	       (f 10s0))
+	       (b (* -1 (/ h w) x))
+	       (tt  (* (/ h w) x))
+	       (n znear)
+	       (f zfar))
 	  (make-array 16 :element-type 'single-float
 		      :initial-contents
 		      (list (/ (* 2 n) (- r l))   0s0   0s0   0s0
@@ -134,7 +142,7 @@
 			    0s0 0s0  (- (/ (* 2 f n) (- f n))) 0s0)))))
       (gl:matrix-mode gl:+modelview+)
       (gl:load-identity)
-      (gl:translate-f 0 0 0)
+      (gl:translate-f 0 0 -6)
       #+nil
       (glu:look-at 0 20 14 ;; camera
 		   0 0 0   ;; target
@@ -149,7 +157,7 @@
     (gl:line-width 3)
     (gl:color-3f 1 1 1)
     (gl:enable gl:+lighting+)
-    (gl:enable gl:+depth-test+)
+    (gl:disable gl:+depth-test+)
     (gl:enable gl:+light0+)
     (gl:shade-model gl:+flat+)
     (gl:light-fv gl:+light0+ gl:+position+ #(1s0 4s0 2s0 1s0))

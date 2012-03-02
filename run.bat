@@ -1,0 +1,1 @@
+sbcl --load testglfw.lisp

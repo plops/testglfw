@@ -1,4 +1,5 @@
 (eval-when (:compile-toplevel :execute :load-toplevel)
+  (load "c:/Users/martin/quicklisp/setup.lisp")
   (require :cl-glfw)
   (require :cl-glfw-opengl-version_1_1)
   (require :cl-glfw-glu))
@@ -62,8 +63,49 @@
 			   (1 1 1) (0 0 1) (0 1 0)) do
 	 (gl:vertex-3f x y z))))
 
-(let ((rot 0))
+(let ((objs nil))
+ (defun upload-texture (h w)
+   (let* ((img (make-array (list h w) :element-type '(unsigned-byte 16))))
+     (unless objs
+       (setf objs (make-array 1 :element-type '(unsigned-byte 32)))
+       (gl:gen-textures (length objs) objs))
+     
+     (gl:delete-textures 1 objs)
+     (gl:gen-textures (length objs) objs)
+     (gl:bind-texture gl:+texture-2d+ (aref objs 0))
+     ;;(gl:pixel-store-i gl:+unpack-alignment+ 1)
+     (gl:tex-parameter-i gl:+texture-2d+ 
+			 gl:+texture-min-filter+ gl:+nearest+)
+     (gl:tex-parameter-i gl:+texture-2d+ 
+			 gl:+texture-mag-filter+ gl:+nearest+)
+     (gl:enable gl:+texture-2d+)
+	  
+     (dotimes (i w)
+       (dotimes (j h)
+	 (setf (aref img j i) (* (/ (expt 2 8) 32) j (mod (* i j) 2)))))
+    
+     (gl:matrix-mode gl:+color+)
+     (gl:load-identity)
+     (gl:scale-f 253 .1 .1)
+     (gl:matrix-mode gl:+modelview+)
+    
+     (sb-sys:with-pinned-objects (img)
+       (gl:tex-image-2d gl:+texture-2d+ 0 gl:+luminance+ w h 0
+			gl:+luminance+ gl:+unsigned-short+
+			(sb-sys:vector-sap 
+			 (sb-ext:array-storage-vector img))))
+    
+     (let ((a (gl:get-error)))
+       (unless (= a 0)
+	 (format t "get-error: ~a~%" a))))))
+
+(let ((rot 0)
+      (set-int nil))
   (defun draw ()
+    (unless set-int
+      (glfw:swap-interval 0)
+      (setf set-int t))
+    (sleep (/ .9 30))
     (destructuring-bind (w h) (glfw:get-window-size)
       (setf h (max h 1))
       (gl:viewport 0 0 w h)
@@ -71,18 +113,28 @@
       (gl:clear (logior gl:+color-buffer-bit+ gl:+depth-buffer-bit+))
       (gl:matrix-mode gl:+projection+)
       (gl:load-identity)
-      (glu:perspective 65 (/ w h) 1 100)
+      ;(glu:perspective 65 (/ w h) 1 100)
+
+      (let ((x 10))
+	(gl:ortho (- x) x (- x) x -10 10))
+      #+nil
+      (let ((x 10s0))
+	(gl:frustum (- x) x (- x) x -10 10))
       (gl:matrix-mode gl:+modelview+)
       (gl:load-identity)
+      (gl:translate-f 0 0 0)
+      #+nil
       (glu:look-at 0 20 14 ;; camera
 		   0 0 0   ;; target
 		   0 0 1))
     (gl:translate-f 0 0 0)
+    
+    (draw-grid)
     (gl:rotate-f 30 0 0 1)
     (if (< rot 360)
-	(incf rot .3)
+	(incf rot)
 	(setf rot 0))
-    (draw-grid)
+    
     (count-fps)
     (gl:line-width 3)
     (gl:color-3f 1 1 1)
@@ -94,7 +146,7 @@
     (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ #(0.9 0.9 0.0 1.0))
 
     ;;(gl:disable gl:+normalize+)
-    
+
     (gl:with-push-matrix
       (gl:rotate-f rot 0 0 1)
       (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
@@ -102,64 +154,31 @@
 				  :element-type 'single-float))
       (let* ((s 1)
 	     (h 16)
-	     (w 16)
+	      (w 16)
 	     (ww 32)
-	     (hh 32)
-	     (img (make-array (list hh ww) :element-type '(unsigned-byte 16)))
-	     (objs (make-array 1 :element-type '(unsigned-byte 32))))
-	(gl:gen-textures (length objs) objs)
-	(gl:bind-texture gl:+texture-2d+ (aref objs 0))
-	;;(gl:pixel-store-i gl:+unpack-alignment+ 1)
-	(gl:tex-parameter-i gl:+texture-2d+ 
-			    gl:+texture-min-filter+ gl:+nearest+)
-	(gl:tex-parameter-i gl:+texture-2d+ 
-			    gl:+texture-mag-filter+ gl:+nearest+)
-	(gl:enable gl:+texture-2d+)
-	
-	(dotimes (i ww)
-	  (dotimes (j hh)
-	    (setf (aref img j i) (* (/ (expt 2 8) 32) j (mod (* i j) 2)))))
-
-	(gl:matrix-mode gl:+color+)
-	(gl:load-identity)
-	(gl:scale-f 253 .1 .1)
-	(gl:matrix-mode gl:+modelview+)
-
-	(sb-sys:with-pinned-objects (img)
-	  (gl:tex-image-2d gl:+texture-2d+ 0 gl:+luminance+ ww hh 0
-			   gl:+luminance+ gl:+unsigned-short+
-			   (sb-sys:vector-sap 
-			    (sb-ext:array-storage-vector img))))
-	
-	(let ((a (gl:get-error)))
-	  (unless (= a 0)
-	    (format t "get-error: ~a~%" a)))
+	     (hh 32)) 
+	(upload-texture hh ww)
 	(gl:scale-f s s s)
 	(gl:translate-f (* w -.5) (* h -.5) .1)
-	
-	#+nil
-	(progn
-	 (gl-ext:scan-available-extensions)
-	 (defparameter *bla* (gl-ext:available-extensions))
-	 (defparameter *bla2* (gl:get-string gl:+extensions+)))
+	 
+	 (gl:with-begin gl:+quads+
+	   (dotimes (j h)
+	     (let ((d  -.1s0
+		     ))
+	       (dotimes (i w)
+		 (labels ((c (a b)
+			    (gl:tex-coord-2f (* a (/ 1s0 w)) 
+					     (* b (/ 1s0 h)))
+			    (gl:vertex-2f a b)))
+		   (gl:normal-3f 0 0 s)
+		   (c i j)
+		   (c i (+ d 1 j))
+		   (c (+ d 1 i) (+ d 1 j))
+		   (c (+ d 1 i) j))))))
+	 (gl:disable gl:+lighting+)
+	 (gl:disable gl:+texture-2d+)
 
-	(gl:with-begin gl:+quads+
-	  (dotimes (j h)
-	    (let ((d -.1s0
-		    ))
-	      (dotimes (i w)
-		(labels ((c (a b)
-			   (gl:tex-coord-2f (* a (/ 1s0 w)) 
-					    (* b (/ 1s0 h)))
-			   (gl:vertex-2f a b)))
-		  (gl:normal-3f 0 0 s)
-		  (c i j)
-		  (c i (+ d 1 j))
-		  (c (+ d 1 i) (+ d 1 j))
-		  (c (+ d 1 i) j))))))
-	(gl:disable gl:+lighting+)
-	(gl:disable gl:+texture-2d+)
-	(gl:delete-textures 1 objs)))))
+	))))
 
 (glfw:do-window (:title "bla" :width 512 :height 512)
     ()

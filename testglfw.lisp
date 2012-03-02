@@ -137,47 +137,80 @@
 		   (make-array 4 :initial-contents '(1s0 1s0 1s0 1s0) 
 			       :element-type 'single-float))
   
-   (labels ((c (a b)
-	      (unless select
-		(gl:tex-coord-2f (* a (/ 1s0 w)) 
-				 (* b (/ 1s0 h))))
-	      (gl:vertex-2f a b)))
-     (unless select ;; if we are not in select mode we can send all the
-       ;; quads at once
-       (gl:begin gl:+quads+))
+   (let ((norms (make-array (list h w 4 3) :element-type 'single-float
+			    :initial-element 0s0))
+	 (verts (make-array (list h w 4 2) :element-type 'single-float))
+	 (texco (make-array (list h w 4 2) :element-type 'single-float)))
      (dotimes (j h)
        (let ((d  -.1s0))
 	 (dotimes (i w)
-	   (when select
-	     (gl:load-name (encode-pick-name i j)))
-	   (progn
-	     (when select
-	       (gl:begin gl:+quads+))
-	     (gl:normal-3f 0 0 1)
-	     (c i j)
-	     (c i (+ d 1 j))
-	     (c (+ d 1 i) (+ d 1 j))
-	     (c (+ d 1 i) j)
-	     (when select
-	       (gl:end))))))
-     (unless select
-       (gl:end))
-     (when (and (not select)
-		emph
-		(car emph)) ;; draw selection indicator
-       (gl:disable gl:+lighting+)
-       (gl:disable gl:+texture-2d+)
-       (gl:color-3f 0 1 0)
-       (dolist (e emph)
-	 (destructuring-bind (x y) e
-	   (gl:with-begin gl:+line-loop+
-	     (c x y)
-	     (c x (+ y 1))
-	     (c (+ 1 x) (+ 1 y))
-	     (c (+ 1 x) y))))
-       (gl:color-3f 1 1 1)
-       (gl:enable gl:+lighting+)
-       (gl:enable gl:+texture-2d+)))))
+	   (labels ((c (v a b)
+		      (setf (aref verts j i v 0) a
+			    (aref verts j i v 1) b
+			    (aref texco j i v 0) (* a (/ 1s0 w))
+			    (aref texco j i v 1) (* b (/ 1s0 h)))))
+	     (dotimes (k 4)
+	       (setf (aref norms j i k 0) 0s0
+		     (aref norms j i k 1) 0s0
+		     (aref norms j i k 2) 1s0))	 
+	     (c 0 (* 1s0 i) (* 1s0 j))
+	     (c 1 (* 1s0 i) (+ d 1 j))
+	     (c 2 (+ d 1 i) (+ d 1 j))
+	     (c 3 (+ d 1 i) (* 1s0 j))))))
+     #+nil(defparameter *blabf*
+       (setf va (list norms verts texco)))
+     (sb-sys:with-pinned-objects (texco norms verts)
+       (gl:tex-coord-pointer 2
+			     gl:+float+
+			     0
+			     (sb-sys:vector-sap 
+			      (sb-ext:array-storage-vector 
+			       texco)))
+      (gl:normal-pointer gl:+float+
+			 0
+			 (sb-sys:vector-sap 
+			  (sb-ext:array-storage-vector norms)))
+       (gl:vertex-pointer 2
+			  gl:+float+
+			  0
+			  (sb-sys:vector-sap 
+			   (sb-ext:array-storage-vector verts)))
+       (gl:enable-client-state gl:+vertex-array+)
+       (gl:enable-client-state gl:+normal-array+)
+       (gl:enable-client-state gl:+texture-coord-array+)))
+   (gl:draw-arrays gl:+quads+ 0 (* w h 4))
+   #+nil
+   (dotimes (j h)
+     (let ((d  -.1s0))
+       (dotimes (i w)
+	 (when select
+	   (gl:load-name (encode-pick-name i j)))
+	 #+nil(gl:with-begin gl:+quads+
+	   
+	   (gl:normal-3f 0 0 1)
+	   (c i j)
+	   (c i (+ d 1 j))
+	   (c (+ d 1 i) (+ d 1 j))
+	   (c (+ d 1 i) j)
+	   ))))
+
+#+nil
+   (when (and (not select)
+	      emph
+	      (car emph)) ;; draw selection indicator
+     (gl:disable gl:+lighting+)
+     (gl:disable gl:+texture-2d+)
+     (gl:color-3f 0 1 0)
+     (dolist (e emph)
+       (destructuring-bind (x y) e
+	 #+nil(gl:with-begin gl:+line-loop+
+	   (c x y)
+	   (c x (+ y 1))
+	   (c (+ 1 x) (+ 1 y))
+	   (c (+ 1 x) y))))
+     (gl:color-3f 1 1 1)
+     (gl:enable gl:+lighting+)
+     (gl:enable gl:+texture-2d+))))
 
 (defun set-view3d (&key select)
   (destructuring-bind (w h) (glfw:get-window-size)
@@ -226,7 +259,7 @@
     (init-gl-state)
     (draw-grid)
     
-    (incf rot 0)
+    (incf rot .01)
     (if (< 360 rot)
 	(setf rot 0))
     
@@ -244,7 +277,7 @@
 	  (gl:rotate-f rot 0 0 1)
 	  (gl:scale-f s s s)
 	  (gl:translate-f (* w -.5) (* h -.5) .1)
-	  (let* ((n (* w h))
+	  #+nil(let* ((n (* w h))
 		 (sel (make-array (*  ; n, min-depth, max-depth, name
 				   4 n)
 				  :element-type '(unsigned-byte 32))))
@@ -265,8 +298,12 @@
 	  (when mpos
 	    (setf *current-quad* mpos))
 	  
-	  (upload-texture hh ww)
+	  ;(upload-texture hh ww)
 	  (set-view3d :select nil)
+	  (gl:rotate-f rot 0 0 1)
+	  (gl:scale-f s s s)
+	  (gl:translate-f (* w -.5) (* h -.5) .1)
+
 	  (draw-quads :select nil :w w :h h :emph (when mpos
 						    (append (list mpos) *emph-quad-list* ))))))))
 

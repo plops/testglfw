@@ -114,12 +114,24 @@
       (gl:matrix-mode gl:+projection+)
       (gl:load-identity)
       ;(glu:perspective 65 (/ w h) 1 100)
-
-      (let ((x 10))
-	(gl:ortho (- x) x (- x) x -10 10))
-      #+nil
+      
       (let ((x 10s0))
-	(gl:frustum (- x) x (- x) x -10 10))
+;	(gl:ortho (- 5 x) (+ 5 x) (- x) x -10 10)
+;	(gl:frustum (- x) x (- x) x -10 10)
+	(gl:load-matrix-f
+	 (let ((l (- x))
+	       (r x)
+	       (b (- x))
+	       (tt x)
+	       (n 0s0)
+	       (f 10s0))
+	  (make-array 16 :element-type 'single-float
+		      :initial-contents
+		      (list (/ (* 2 n) (- r l))   0s0   0s0   0s0
+			    0s0  (/ (* 2 n) (- tt b))    0s0   0s0
+			    (/ (+ r l) (- r l)) (/ (+ tt b) (- tt b))
+			    (- (/ (+ f n) (- f n))) -1s0
+			    0s0 0s0  (- (/ (* 2 f n) (- f n))) 0s0)))))
       (gl:matrix-mode gl:+modelview+)
       (gl:load-identity)
       (gl:translate-f 0 0 0)
@@ -127,12 +139,10 @@
       (glu:look-at 0 20 14 ;; camera
 		   0 0 0   ;; target
 		   0 0 1))
-    (gl:translate-f 0 0 0)
     
     (draw-grid)
-    (gl:rotate-f 30 0 0 1)
-    (if (< rot 360)
-	(incf rot)
+    (incf rot)
+    (if (< 360 rot)
 	(setf rot 0))
     
     (count-fps)

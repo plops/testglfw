@@ -128,53 +128,56 @@
 (defun decode-pick-name-y (p)
   (ldb (byte 16 0) p))
 
-(defun draw-quads (&key select w h emph)
-  "if emph is a list of (x y) emphasize these"
-  (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
-		  (make-array 4 :initial-contents '(1s0 1s0 1s0 1s0) 
-			      :element-type 'single-float))
+(let ((ow 8)
+      (oh 8)
+      (va nil))
+ (defun draw-quads (&key select (w 8) (h 8) emph)
+   "if emph is a list of (x y) emphasize these"
+   (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
+		   (make-array 4 :initial-contents '(1s0 1s0 1s0 1s0) 
+			       :element-type 'single-float))
   
-  (labels ((c (a b)
-	     (unless select
-	       (gl:tex-coord-2f (* a (/ 1s0 w)) 
-				(* b (/ 1s0 h))))
-	     (gl:vertex-2f a b)))
-    (unless select ;; if we are not in select mode we can send all the
-		   ;; quads at once
-      (gl:begin gl:+quads+))
-    (dotimes (j h)
-      (let ((d  -.1s0))
-	(dotimes (i w)
-	  (when select
-	    (gl:load-name (encode-pick-name i j)))
-	  (progn
-	    (when select
-	      (gl:begin gl:+quads+))
-	    (gl:normal-3f 0 0 1)
-	    (c i j)
-	    (c i (+ d 1 j))
-	    (c (+ d 1 i) (+ d 1 j))
-	    (c (+ d 1 i) j)
-	    (when select
-	      (gl:end))))))
-    (unless select
-      (gl:end))
-    (when (and (not select)
-	       emph
-	       (car emph)) ;; draw selection indicator
-      (gl:disable gl:+lighting+)
-      (gl:disable gl:+texture-2d+)
-      (gl:color-3f 0 1 0)
-      (dolist (e emph)
-	(destructuring-bind (x y) e
-	  (gl:with-begin gl:+line-loop+
-	    (c x y)
-	    (c x (+ y 1))
-	    (c (+ 1 x) (+ 1 y))
-	    (c (+ 1 x) y))))
-      (gl:color-3f 1 1 1)
-      (gl:enable gl:+lighting+)
-      (gl:enable gl:+texture-2d+))))
+   (labels ((c (a b)
+	      (unless select
+		(gl:tex-coord-2f (* a (/ 1s0 w)) 
+				 (* b (/ 1s0 h))))
+	      (gl:vertex-2f a b)))
+     (unless select ;; if we are not in select mode we can send all the
+       ;; quads at once
+       (gl:begin gl:+quads+))
+     (dotimes (j h)
+       (let ((d  -.1s0))
+	 (dotimes (i w)
+	   (when select
+	     (gl:load-name (encode-pick-name i j)))
+	   (progn
+	     (when select
+	       (gl:begin gl:+quads+))
+	     (gl:normal-3f 0 0 1)
+	     (c i j)
+	     (c i (+ d 1 j))
+	     (c (+ d 1 i) (+ d 1 j))
+	     (c (+ d 1 i) j)
+	     (when select
+	       (gl:end))))))
+     (unless select
+       (gl:end))
+     (when (and (not select)
+		emph
+		(car emph)) ;; draw selection indicator
+       (gl:disable gl:+lighting+)
+       (gl:disable gl:+texture-2d+)
+       (gl:color-3f 0 1 0)
+       (dolist (e emph)
+	 (destructuring-bind (x y) e
+	   (gl:with-begin gl:+line-loop+
+	     (c x y)
+	     (c x (+ y 1))
+	     (c (+ 1 x) (+ 1 y))
+	     (c (+ 1 x) y))))
+       (gl:color-3f 1 1 1)
+       (gl:enable gl:+lighting+)
+       (gl:enable gl:+texture-2d+)))))
 
 (defun set-view3d (&key select)
   (destructuring-bind (w h) (glfw:get-window-size)
@@ -257,17 +260,13 @@
 		  (break "problem with select. maybe too many objects"))
 		(when (< 0 sn)
 		  (setf mpos (list (decode-pick-name-x (aref sel 3))
-				   (decode-pick-name-y (aref sel 3)))))))))
-	
-	(when mpos
-	  (setf *current-quad* mpos))
-       
-	(upload-texture hh ww)
-	(set-view3d :select nil)
-	(gl:with-push-matrix 
-	  (gl:rotate-f rot 0 0 1)
-	  (gl:scale-f s s s)
-	  (gl:translate-f (* w -.5) (* h -.5) .1)
+				   (decode-pick-name-y (aref sel 3))))))))
+	  
+	  (when mpos
+	    (setf *current-quad* mpos))
+	  
+	  (upload-texture hh ww)
+	  (set-view3d :select nil)
 	  (draw-quads :select nil :w w :h h :emph (when mpos
 						    (append (list mpos) *emph-quad-list* ))))))))
 

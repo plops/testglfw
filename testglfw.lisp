@@ -139,7 +139,7 @@
 	    (c (+ d 1 i) (+ d 1 j))
 	    (c (+ d 1 i) j)))))))
 
-(defun set-view3d ()
+(defun set-view3d (&key select)
   (destructuring-bind (w h) (glfw:get-window-size)
     (setf h (max h 1))
     (gl:viewport 0 0 w h)
@@ -147,10 +147,13 @@
     (gl:load-identity)
     
     (destructuring-bind (x y) (glfw:get-mouse-pos)
-      (gl:translate-f (* (/ 2 w) (- x (* .5 w)) ) 
-		      (* (/ 2 h) (- (* .5 h ) y))
-		      0))
-    (glu:perspective 65 (/ w h) 1 100)
+      (when select
+	(gl:translate-f (* (/ 2 w) (- x (* .5 w)) ) 
+			(* (/ 2 h) (- (* .5 h ) y))
+			0)))
+    (glu:perspective (if select
+		       65
+		       65) (/ w h) 1 100)
        
     (gl:matrix-mode gl:+modelview+)
     (gl:load-identity)
@@ -169,7 +172,7 @@
       (glfw:swap-interval 1)
       (setf set-int t))
     
-    (set-view3d)
+    
   
     (init-gl-state)
     (draw-grid)
@@ -179,39 +182,46 @@
 	(setf rot 0))
     
     (count-fps)
-    
-    (gl:with-push-matrix
-      (gl:rotate-f rot 0 0 1)
-      
-      (let* ((s 1)
-	     (h 16)
-	     (w 16)
-	     (ww 32)
-	     (hh 32)) 
-	
-	(progn
-	  (let* ((n (* w h))
-		 (sel (make-array (* ; n, min-depth, max-depth, name
-				   4 n)
-				  :element-type '(unsigned-byte 32))))
-	    (sb-sys:with-pinned-objects (sel)
-	      (gl:select-buffer (length sel) (sb-sys:vector-sap sel))
-	     (gl:render-mode gl:+select+)
-	     (gl:init-names)
-	     (gl:push-name 11111111) ;; name stack must contain one value
-	     (draw-quads :select t :w w :h h)
-	     (gl:pop-name)
-	     (let ((sn (gl:render-mode gl:+render+)))
-	       (defparameter *bla* (list sn sel))))))
-	
 
-	(upload-texture hh ww)
-	(gl:scale-f s s s)
+
+    (let* ((s 1)
+	   (h 16)
+	   (w 16)
+	   (ww 32)
+	   (hh 32)) 
+      
+      (set-view3d :select t)
+
+      (gl:with-push-matrix
+	(gl:rotate-f rot 0 0 1)
+	(gl:translate-f (* w -.5) (* h -.5) .1)
+	(let* ((n (* w h))
+	       (sel (make-array (* ; n, min-depth, max-depth, name
+				 4 n)
+				:element-type '(unsigned-byte 32))))
+	  (sb-sys:with-pinned-objects (sel)
+	    (gl:select-buffer (length sel) (sb-sys:vector-sap sel))
+	    (gl:render-mode gl:+select+)
+	    (gl:init-names)
+	    (gl:push-name 11111111) ;; name stack must contain one value
+	    (draw-quads :select t :w w :h h)
+	    (gl:pop-name)
+	    (let ((sn (gl:render-mode gl:+render+)))
+	      (defparameter *bla* (list sn sel))
+	      (format t "sn ~a~%" (list sn (aref sel 3) (random 3)))
+	      ))))
+      
+      
+      (upload-texture hh ww)
+      (set-view3d :select t)
+      (gl:with-push-matrix 
+	(gl:rotate-f rot 0 0 1)
+	;(gl:scale-f s s s)
 	(gl:translate-f (* w -.5) (* h -.5) .1)
 	(gl:render-mode gl:+render+)
-	(draw-quads :select nil :w w :h h)
-	
-	))))
+	(draw-quads :select nil :w w :h h))
+      
+      )))
 
 (progn
   (reset-fps-counter)

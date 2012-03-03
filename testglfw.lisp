@@ -134,7 +134,7 @@
  (defun draw-quads (&key select (w 8) (h 8) emph)
    "if emph is a list of (x y) emphasize these"
    (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
-		   (make-array 4 :initial-contents '(1s0 1s0 1s0 1s0) 
+		   (make-array 4 :initial-contents '(.8s0 .8s0 .8s0 1s0) 
 			       :element-type 'single-float))
   
    (let ((norms (make-array (list h w 4 3) :element-type 'single-float
@@ -175,42 +175,34 @@
 			  0
 			  (sb-sys:vector-sap 
 			   (sb-ext:array-storage-vector verts)))
-       (gl:enable-client-state gl:+vertex-array+)
-       (gl:enable-client-state gl:+normal-array+)
-       (gl:enable-client-state gl:+texture-coord-array+)))
-   (gl:draw-arrays gl:+quads+ 0 (* w h 4))
-   #+nil
-   (dotimes (j h)
-     (let ((d  -.1s0))
-       (dotimes (i w)
-	 (when select
-	   (gl:load-name (encode-pick-name i j)))
-	 #+nil(gl:with-begin gl:+quads+
-	   
-	   (gl:normal-3f 0 0 1)
-	   (c i j)
-	   (c i (+ d 1 j))
-	   (c (+ d 1 i) (+ d 1 j))
-	   (c (+ d 1 i) j)
-	   ))))
+       (gl:enable-client-state gl:+vertex-array+)))
+   (if select
+       (progn (gl:disable-client-state gl:+normal-array+)
+	      (gl:disable-client-state gl:+texture-coord-array+)
+	      (dotimes (j h)
+		(dotimes (i w)
+		  (gl:load-name (encode-pick-name i j))
+		  (gl:draw-arrays gl:+quads+ 
+				  (* 4 (+ i (* w j))) 4))))
+       (progn
+	 (gl:enable-client-state gl:+normal-array+)
+	 (gl:enable-client-state gl:+texture-coord-array+)
+	 (gl:draw-arrays gl:+quads+ 0 (* w h 4))))
 
-#+nil
    (when (and (not select)
 	      emph
 	      (car emph)) ;; draw selection indicator
-     (gl:disable gl:+lighting+)
-     (gl:disable gl:+texture-2d+)
-     (gl:color-3f 0 1 0)
-     (dolist (e emph)
-       (destructuring-bind (x y) e
-	 #+nil(gl:with-begin gl:+line-loop+
-	   (c x y)
-	   (c x (+ y 1))
-	   (c (+ 1 x) (+ 1 y))
-	   (c (+ 1 x) y))))
-     (gl:color-3f 1 1 1)
-     (gl:enable gl:+lighting+)
-     (gl:enable gl:+texture-2d+))))
+     (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
+		     (make-array 
+		      4 :initial-contents '(.2s0 .8s0 .2s0 1s0) 
+		      :element-type 'single-float))
+     (gl:with-push-matrix
+       (gl:translate-f 0 0 .1)
+      (dolist (e emph)
+	(destructuring-bind (x y) e
+	  (gl:enable-client-state gl:+normal-array+)
+	  (gl:enable-client-state gl:+texture-coord-array+)
+	  (gl:draw-arrays gl:+quads+ (* 4 (+ x (* w y))) 4)))))))
 
 (defun set-view3d (&key select)
   (destructuring-bind (w h) (glfw:get-window-size)
@@ -257,7 +249,6 @@
       (glfw:set-mouse-button-callback 'mouse-button-callback))
   
     (init-gl-state)
-    (draw-grid)
     
     (incf rot .01)
     (if (< 360 rot)
@@ -277,7 +268,8 @@
 	  (gl:rotate-f rot 0 0 1)
 	  (gl:scale-f s s s)
 	  (gl:translate-f (* w -.5) (* h -.5) .1)
-	  #+nil(let* ((n (* w h))
+	  
+	  (let* ((n (* w h))
 		 (sel (make-array (*  ; n, min-depth, max-depth, name
 				   4 n)
 				  :element-type '(unsigned-byte 32))))
@@ -300,12 +292,17 @@
 	  
 	  ;(upload-texture hh ww)
 	  (set-view3d :select nil)
+	  (draw-grid)
+    
 	  (gl:rotate-f rot 0 0 1)
 	  (gl:scale-f s s s)
 	  (gl:translate-f (* w -.5) (* h -.5) .1)
 
-	  (draw-quads :select nil :w w :h h :emph (when mpos
-						    (append (list mpos) *emph-quad-list* ))))))))
+	  (draw-quads :select nil :w w :h h 
+		      :emph 
+		      (if mpos
+			  (append (list mpos) *emph-quad-list*)
+			  *emph-quad-list*)))))))
 
 (progn
   (reset-fps-counter)

@@ -128,6 +128,13 @@
 (defun decode-pick-name-y (p)
   (ldb (byte 16 0) p))
 
+(defvar *quads-select-dlist* nil)
+(defun request-display-list-regeneration ()
+  (when *quads-select-dlist*
+   (gl:delete-lists *quads-select-dlist* 2)
+   (setf *quads-select-dlist* nil)))
+
+
 (let ((ow 8)
       (oh 8)
       norms verts texco)
@@ -242,11 +249,6 @@
     (push *current-quad* *emph-quad-list*))
   (format t "~a~%" (list button (eq button 'left) action *current-quad*)))
 
-(defvar *quads-select-dlist* nil)
-(defun request-display-list-regeneration ()
-  (when *quads-select-dlist*
-   (gl:delete-lists *quads-select-dlist* 2)
-   (setf *quads-select-dlist* nil)))
 
 
 
@@ -266,14 +268,14 @@
       (glfw:set-mouse-button-callback 'mouse-button-callback))
   
     
-    (incf rot .01)
+    (incf rot .1)
     (if (< 360 rot)
 	(setf rot 0))
     
     (count-fps)
 
     
-    (let* ((s .4)
+    (let* ((s .2)
 	   (w 80)
 	   (h 60)
 	   (ww 320)

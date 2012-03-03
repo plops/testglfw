@@ -77,7 +77,7 @@
   (gl:enable gl:+depth-test+)
   (gl:enable gl:+light0+)
   (gl:shade-model gl:+flat+)
-  (gl:light-fv gl:+light0+ gl:+position+ #(1s0 4s0 2s0 1s0))
+  (gl:light-fv gl:+light0+ gl:+position+ #(1s0 3s0 10s0 1s0))
   (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ #(0.9 0.9 0.0 1.0))
   (gl:enable gl:+normalize+))
 
@@ -130,17 +130,23 @@
 
 (let ((ow 8)
       (oh 8)
-      (va nil))
+      norms verts texco)
  (defun draw-quads (&key select (w 8) (h 8) emph)
    "if emph is a list of (x y) emphasize these"
    (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
 		   (make-array 4 :initial-contents '(.8s0 .8s0 .8s0 1s0) 
 			       :element-type 'single-float))
   
-   (let ((norms (make-array (list h w 4 3) :element-type 'single-float
-			    :initial-element 0s0))
-	 (verts (make-array (list h w 4 2) :element-type 'single-float))
-	 (texco (make-array (list h w 4 2) :element-type 'single-float)))
+   (when (or ;; if no arrays are defined or the size changed
+	  (/= w ow)
+	  (/= h oh)
+	  (not (and norms verts texco)))
+     (setf ow w
+	   oh h
+	   norms (make-array (list h w 4 3) :element-type 'single-float
+			     :initial-element 0s0)
+	   verts (make-array (list h w 4 2) :element-type 'single-float)
+	   texco (make-array (list h w 4 2) :element-type 'single-float))
      (dotimes (j h)
        (let ((d  -.1s0))
 	 (dotimes (i w)
@@ -156,10 +162,9 @@
 	     (c 0 (* 1s0 i) (* 1s0 j))
 	     (c 1 (* 1s0 i) (+ d 1 j))
 	     (c 2 (+ d 1 i) (+ d 1 j))
-	     (c 3 (+ d 1 i) (* 1s0 j))))))
-     #+nil(defparameter *blabf*
-       (setf va (list norms verts texco)))
-     (sb-sys:with-pinned-objects (texco norms verts)
+	     (c 3 (+ d 1 i) (* 1s0 j)))))))
+
+   (sb-sys:with-pinned-objects (texco norms verts)
        (gl:tex-coord-pointer 2
 			     gl:+float+
 			     0
@@ -175,34 +180,34 @@
 			  0
 			  (sb-sys:vector-sap 
 			   (sb-ext:array-storage-vector verts)))
-       (gl:enable-client-state gl:+vertex-array+)))
-   (if select
-       (progn (gl:disable-client-state gl:+normal-array+)
-	      (gl:disable-client-state gl:+texture-coord-array+)
-	      (dotimes (j h)
-		(dotimes (i w)
-		  (gl:load-name (encode-pick-name i j))
-		  (gl:draw-arrays gl:+quads+ 
-				  (* 4 (+ i (* w j))) 4))))
-       (progn
-	 (gl:enable-client-state gl:+normal-array+)
-	 (gl:enable-client-state gl:+texture-coord-array+)
-	 (gl:draw-arrays gl:+quads+ 0 (* w h 4))))
+       (gl:enable-client-state gl:+vertex-array+)
+       (if select
+	   (progn (gl:disable-client-state gl:+normal-array+)
+		  (gl:disable-client-state gl:+texture-coord-array+)
+		  (dotimes (j h)
+		    (dotimes (i w)
+		      (gl:load-name (encode-pick-name i j))
+		      (gl:draw-arrays gl:+quads+ 
+				      (* 4 (+ i (* w j))) 4))))
+	   (progn
+	     (gl:enable-client-state gl:+normal-array+)
+	     (gl:enable-client-state gl:+texture-coord-array+)
+	     (gl:draw-arrays gl:+quads+ 0 (* w h 4))))
 
-   (when (and (not select)
-	      emph
-	      (car emph)) ;; draw selection indicator
-     (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
-		     (make-array 
-		      4 :initial-contents '(.2s0 .8s0 .2s0 1s0) 
-		      :element-type 'single-float))
-     (gl:with-push-matrix
-       (gl:translate-f 0 0 .1)
-      (dolist (e emph)
-	(destructuring-bind (x y) e
-	  (gl:enable-client-state gl:+normal-array+)
-	  (gl:enable-client-state gl:+texture-coord-array+)
-	  (gl:draw-arrays gl:+quads+ (* 4 (+ x (* w y))) 4)))))))
+       (when (and (not select)
+		  emph
+		  (car emph)) ;; draw selection indicator
+	 (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
+			 (make-array 
+			  4 :initial-contents '(.2s0 .8s0 .2s0 1s0) 
+			  :element-type 'single-float))
+	 (gl:with-push-matrix
+	   (gl:translate-f 0 0 .1)
+	   (dolist (e emph)
+	     (destructuring-bind (x y) e
+	       (gl:enable-client-state gl:+normal-array+)
+	       (gl:enable-client-state gl:+texture-coord-array+)
+	       (gl:draw-arrays gl:+quads+ (* 4 (+ x (* w y))) 4))))))))
 
 (defun set-view3d (&key select)
   (destructuring-bind (w h) (glfw:get-window-size)

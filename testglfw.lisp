@@ -77,7 +77,7 @@
   (gl:enable gl:+depth-test+)
   (gl:enable gl:+light0+)
   (gl:shade-model gl:+flat+)
-  (gl:light-fv gl:+light0+ gl:+position+ #(1s0 3s0 5s0 1s0))
+  (gl:light-fv gl:+light0+ gl:+position+ #(1s0 3s0 3s0 1s0))
   (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ #(0.9 0.9 0.0 1.0))
   (gl:enable gl:+normalize+))
 
@@ -131,7 +131,24 @@
 (let ((ow 8)
       (oh 8)
       norms verts texco)
- (defun draw-quads (&key select (w 8) (h 8) emph)
+  (request-display-list-regeneration)
+  (defun draw-emph-quads (emph)
+    
+    (when (and norms verts texco emph (car emph)) 
+      ;; draw selection indicator
+      (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
+		      (make-array 
+		       4 :initial-contents '(.2s0 .8s0 .2s0 1s0) 
+		       :element-type 'single-float))
+      (gl:with-push-matrix
+	(gl:translate-f 0 0 .1)
+	(dolist (e emph)
+	  (destructuring-bind (x y) e
+	    (gl:enable-client-state gl:+normal-array+)
+	    (gl:enable-client-state gl:+texture-coord-array+)
+	    (gl:draw-arrays gl:+quads+ (* 4 (+ x (* ow y))) 4))))))
+
+  (defun draw-quads (&key select (w 8) (h 8))
    "if emph is a list of (x y) emphasize these"
    (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
 		   (make-array 4 :initial-contents '(.8s0 .8s0 .8s0 1s0) 
@@ -141,6 +158,7 @@
 	  (/= w ow)
 	  (/= h oh)
 	  (not (and norms verts texco)))
+     
      (setf ow w
 	   oh h
 	   norms (make-array (list h w 4 3) :element-type 'single-float
@@ -148,7 +166,7 @@
 	   verts (make-array (list h w 4 2) :element-type 'single-float)
 	   texco (make-array (list h w 4 2) :element-type 'single-float))
      (dotimes (j h)
-       (let ((d (/ -.2s0 w)))
+       (let ((d -.1))
 	 (dotimes (i w)
 	   (labels ((c (v a b)
 		      (setf (aref verts j i v 0) a
@@ -162,8 +180,8 @@
 	     (c 0 (* 1s0 i) (* 1s0 j))
 	     (c 1 (* 1s0 i) (+ d 1 j))
 	     (c 2 (+ d 1 i) (+ d 1 j))
-	     (c 3 (+ d 1 i) (* 1s0 j)))))))
-
+	     (c 3 (+ d 1 i) (* 1s0 j))))))
+     (request-display-list-regeneration))
    (sb-sys:with-pinned-objects (texco norms verts)
        (gl:tex-coord-pointer 2
 			     gl:+float+
@@ -192,22 +210,7 @@
 	   (progn
 	     (gl:enable-client-state gl:+normal-array+)
 	     (gl:enable-client-state gl:+texture-coord-array+)
-	     (gl:draw-arrays gl:+quads+ 0 (* w h 4))))
-
-       (when (and (not select)
-		  emph
-		  (car emph)) ;; draw selection indicator
-	 (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ 
-			 (make-array 
-			  4 :initial-contents '(.2s0 .8s0 .2s0 1s0) 
-			  :element-type 'single-float))
-	 (gl:with-push-matrix
-	   (gl:translate-f 0 0 .1)
-	   (dolist (e emph)
-	     (destructuring-bind (x y) e
-	       (gl:enable-client-state gl:+normal-array+)
-	       (gl:enable-client-state gl:+texture-coord-array+)
-	       (gl:draw-arrays gl:+quads+ (* 4 (+ x (* w y))) 4))))))))
+	     (gl:draw-arrays gl:+quads+ 0 (* w h 4)))))))
 
 (defun set-view3d (&key select)
   (destructuring-bind (w h) (glfw:get-window-size)
@@ -239,9 +242,18 @@
     (push *current-quad* *emph-quad-list*))
   (format t "~a~%" (list button (eq button 'left) action *current-quad*)))
 
+(defvar *quads-select-dlist* nil)
+(defun request-display-list-regeneration ()
+  (when *quads-select-dlist*
+   (gl:delete-lists *quads-select-dlist* 2)
+   (setf *quads-select-dlist* nil)))
+
+
+
 (let ((rot 0)
       (set-int nil)
       (mouse-cb nil))
+  (request-display-list-regeneration)  
   (defun draw ()
     (gl:clear-color .0 .2 .2 1)
     (gl:clear (logior gl:+color-buffer-bit+ gl:+depth-buffer-bit+))
@@ -249,21 +261,21 @@
     (unless set-int
       (glfw:swap-interval 1)
       (setf set-int t))
-    (sleep (/ .9 60))
+    ;(sleep (/ .9 60))
     (unless mouse-cb
       (glfw:set-mouse-button-callback 'mouse-button-callback))
   
     
-    (incf rot .1)
+    (incf rot .01)
     (if (< 360 rot)
 	(setf rot 0))
     
     (count-fps)
 
-
-    (let* ((s 4)
-	   (w 8)
-	   (h 6)
+    
+    (let* ((s .4)
+	   (w 80)
+	   (h 60)
 	   (ww 320)
 	   (hh 240)) 
       (let ((mpos nil))
@@ -272,7 +284,6 @@
 	  (gl:rotate-f rot 0 0 1)
 	  (gl:scale-f s s s)
 	  (gl:translate-f (* w -.5) (* h -.5) .1)
-	  
 	  (let* ((n (* w h))
 		 (sel (make-array (*  ; n, min-depth, max-depth, name
 				   4 n)
@@ -280,10 +291,33 @@
 	    (sb-sys:with-pinned-objects (sel)
 	      (gl:select-buffer (length sel) (sb-sys:vector-sap sel))
 	      (gl:render-mode gl:+select+)
-	      (gl:init-names)
-	      (gl:push-name 11111111) ;; name stack must contain one value
-	      (draw-quads :select t :w w :h h)
-	      (gl:pop-name)
+	      
+	      (if *quads-select-dlist* ;; define display list if necessary
+		  (gl:call-list *quads-select-dlist*)
+		  (progn
+		    (setf *quads-select-dlist* (gl:gen-lists 2))
+		    ;; one list is for selection, the following for
+		    ;; normal rendering
+		    (when (= 0 *quads-select-dlist*)
+		      (break "gen-list error: no display lists available."))
+		    (gl:new-list *quads-select-dlist* 
+				 gl:+compile-and-execute+)
+		    
+		    (gl:init-names)
+		    (gl:push-name 11111111) ;; name stack must contain
+					    ;; one value, at least
+		    (draw-quads :select t :w w :h h)
+		    (gl:pop-name)
+		    
+		    (gl:end-list)
+
+		    (when *quads-select-dlist*
+		      ;; the list for normal rendering
+		      (gl:new-list (1+ *quads-select-dlist*) 
+				   gl:+compile-and-execute+)
+		      (draw-quads :select nil :w w :h h)
+		      (gl:end-list))))
+	      
 	      (let ((sn (gl:render-mode gl:+render+)))
 		(when (< sn 0)
 		  (break "problem with select. maybe too many objects"))
@@ -294,7 +328,7 @@
 	  (when mpos
 	    (setf *current-quad* mpos))
 	  
-	  (upload-texture hh ww)
+	  ;(upload-texture hh ww)
 	  (set-view3d :select nil)
 	  
 	  (init-gl-state)
@@ -302,18 +336,20 @@
 	  (gl:rotate-f rot 0 0 1)
 	  (gl:scale-f s s s)
 	  (gl:translate-f (* w -.5) (* h -.5) .1)
-
-	  (draw-quads :select nil :w w :h h 
-		      :emph 
-		      (if mpos
-			  (append (list mpos) *emph-quad-list*)
-			  *emph-quad-list*)))))))
+	  
+	  (when *quads-select-dlist*
+	    (gl:call-list (1+ *quads-select-dlist*)))
+	  
+	  (draw-emph-quads (if mpos
+			       (append (list mpos) *emph-quad-list*)
+			       *emph-quad-list*)))))))
 
 (progn
   (reset-fps-counter)
  (glfw:do-window (:title "bla" :width 512 :height 512)
      ()
    (when (eql (glfw:get-key glfw:+key-esc+) glfw:+press+)
+     (request-display-list-regeneration)
      (return-from glfw::do-open-window))
    (draw)))
 

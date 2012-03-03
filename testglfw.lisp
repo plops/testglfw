@@ -77,7 +77,7 @@
   (gl:enable gl:+depth-test+)
   (gl:enable gl:+light0+)
   (gl:shade-model gl:+flat+)
-  (gl:light-fv gl:+light0+ gl:+position+ #(1s0 3s0 10s0 1s0))
+  (gl:light-fv gl:+light0+ gl:+position+ #(1s0 3s0 5s0 1s0))
   (gl:material-fv gl:+front+ gl:+ambient-and-diffuse+ #(0.9 0.9 0.0 1.0))
   (gl:enable gl:+normalize+))
 
@@ -148,7 +148,7 @@
 	   verts (make-array (list h w 4 2) :element-type 'single-float)
 	   texco (make-array (list h w 4 2) :element-type 'single-float))
      (dotimes (j h)
-       (let ((d  -.1s0))
+       (let ((d (/ -.2s0 w)))
 	 (dotimes (i w)
 	   (labels ((c (v a b)
 		      (setf (aref verts j i v 0) a
@@ -249,22 +249,21 @@
     (unless set-int
       (glfw:swap-interval 1)
       (setf set-int t))
-    
+    (sleep (/ .9 60))
     (unless mouse-cb
       (glfw:set-mouse-button-callback 'mouse-button-callback))
   
-    (init-gl-state)
     
-    (incf rot .01)
+    (incf rot .1)
     (if (< 360 rot)
 	(setf rot 0))
     
     (count-fps)
 
 
-    (let* ((s 1)
-	   (w 32)
-	   (h 24)
+    (let* ((s 4)
+	   (w 8)
+	   (h 6)
 	   (ww 320)
 	   (hh 240)) 
       (let ((mpos nil))
@@ -295,10 +294,11 @@
 	  (when mpos
 	    (setf *current-quad* mpos))
 	  
-	  ;(upload-texture hh ww)
+	  (upload-texture hh ww)
 	  (set-view3d :select nil)
+	  
+	  (init-gl-state)
 	  (draw-grid)
-    
 	  (gl:rotate-f rot 0 0 1)
 	  (gl:scale-f s s s)
 	  (gl:translate-f (* w -.5) (* h -.5) .1)

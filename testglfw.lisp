@@ -275,9 +275,9 @@
     (count-fps)
 
     
-    (let* ((s .2)
-	   (w 80)
-	   (h 60)
+    (let* ((s 2)
+	   (w 16)
+	   (h 8)
 	   (ww 320)
 	   (hh 240)) 
       (let ((mpos nil))

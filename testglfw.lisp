@@ -150,10 +150,11 @@
       (gl:with-push-matrix
 	(gl:translate-f 0 0 .1)
 	(dolist (e emph)
-	  (destructuring-bind (x y) e
-	    (gl:enable-client-state gl:+normal-array+)
-	    (gl:enable-client-state gl:+texture-coord-array+)
-	    (gl:draw-arrays gl:+quads+ (* 4 (+ x (* ow y))) 4))))))
+	  (when e
+	   (destructuring-bind (x y) e
+	     (gl:enable-client-state gl:+normal-array+)
+	     (gl:enable-client-state gl:+texture-coord-array+)
+	     (gl:draw-arrays gl:+quads+ (* 4 (+ x (* ow y))) 4)))))))
 
   (defun draw-quads (&key select (w 8) (h 8))
    "if emph is a list of (x y) emphasize these"
@@ -243,11 +244,8 @@
 
 (defparameter *current-quad* nil)
 (defparameter *emph-quad-list* nil)
+(defvar *rot* 0)
 
-(defun mouse-button-callback (button action)
-  (when (= action 0)
-    (push *current-quad* *emph-quad-list*))
-  (format t "~a~%" (list button (eq button 'left) action *current-quad*)))
 
 
 
@@ -255,7 +253,9 @@
 (let ((rot 0)
       (set-int nil)
       (mouse-cb nil))
-  (request-display-list-regeneration)  
+  (request-display-list-regeneration)
+  (defun request-new-mouse-callbacks ()
+    (setf mouse-cb nil))
   (defun draw ()
     (gl:clear-color .0 .2 .2 1)
     (gl:clear (logior gl:+color-buffer-bit+ gl:+depth-buffer-bit+))
@@ -263,12 +263,14 @@
     (unless set-int
       (glfw:swap-interval 1)
       (setf set-int t))
-    ;(sleep (/ .9 60))
+    (sleep (/ .9 60))
     (unless mouse-cb
-      (glfw:set-mouse-button-callback 'mouse-button-callback))
+      (setf mouse-cb t)
+      (glfw:set-mouse-button-callback 'mouse-button-callback)
+      (glfw:set-mouse-pos-callback 'mouse-pos-callback))
   
     
-    (incf rot .1)
+    ;;(incf rot .1)
     (if (< 360 rot)
 	(setf rot 0))
     
@@ -277,13 +279,14 @@
     
     (let* ((s 2)
 	   (w 16)
-	   (h 8)
+	   (h 12)
 	   (ww 320)
 	   (hh 240)) 
       (let ((mpos nil))
       	(gl:with-push-matrix
 	  (set-view3d :select t)
-	  (gl:rotate-f rot 0 0 1)
+	  (when *rot*
+	    (gl:rotate-f *rot* 0 0 1))
 	  (gl:scale-f s s s)
 	  (gl:translate-f (* w -.5) (* h -.5) .1)
 	  (let* ((n (* w h))
@@ -335,7 +338,8 @@
 	  
 	  (init-gl-state)
 	  (draw-grid)
-	  (gl:rotate-f rot 0 0 1)
+	  (when *rot*
+	   (gl:rotate-f *rot* 0 0 1))
 	  (gl:scale-f s s s)
 	  (gl:translate-f (* w -.5) (* h -.5) .1)
 	  
@@ -355,3 +359,22 @@
      (return-from glfw::do-open-window))
    (draw)))
 
+(let ((middle-down-pos ()))
+  (defun mouse-pos-callback (x y)
+    (when middle-down-pos
+      (destructuring-bind (ox oy) middle-down-pos
+	(setf *rot* (* 3 (sqrt (+ (expt (- ox x) 2)
+				  (expt (- oy y) 2))))))))
+  (defun mouse-button-callback (button action)
+    (when (and (eq button :left) (= action 0))
+      (push *current-quad* *emph-quad-list*))
+    (when (eq button :middle)
+      (destructuring-bind (x y) (glfw:get-mouse-pos)
+	(cond
+	  ((= action glfw:+press+)
+	   (setf middle-down-pos (list x y)))
+	  ((= action glfw:+release+) 
+	   (setf *rot*  (mouse-pos-callback x y)
+		 middle-down-pos nil)))))
+    (format t "~a~%" (list button action *current-quad*)))
+  (request-new-mouse-callbacks))

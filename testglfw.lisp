@@ -280,14 +280,15 @@
     (gl:clear-color .0 .2 .2 1)
     (gl:clear (logior gl:+color-buffer-bit+ gl:+depth-buffer-bit+))
     
-    (unless set-int
+    #+nil (unless set-int
       (glfw:swap-interval 1)
       (setf set-int t))
     (sleep (/ .9 60))
     (unless mouse-cb
       (setf mouse-cb t)
       (glfw:set-mouse-button-callback 'mouse-button-callback)
-      (glfw:set-mouse-pos-callback 'mouse-pos-callback))
+      (glfw:set-mouse-pos-callback 'mouse-pos-callback)
+      )
   
     
     ;;(incf rot .1)
@@ -373,8 +374,6 @@
 
 
 
-
-#+nil
 (progn
   (reset-fps-counter)
  (glfw:do-window (:title "bla" :width 512 :height 512)

@@ -60,9 +60,9 @@
 				     (if (< (- t1 t0) 1e-6)
 					 0s0
 					 (/ frames (- t1 t0)))))
-     (setf frames 0
-	   t0 t1))
-   (incf frames)))
+      (setf frames 0
+	    t0 t1))
+    (incf frames)))
 
 (defun draw-tetraeder ()
   (gl:color-3ub 255 255 255)
@@ -248,14 +248,34 @@
 
 
 
-
-
 (let ((rot 0)
       (set-int nil)
       (mouse-cb nil))
   (request-display-list-regeneration)
   (defun request-new-mouse-callbacks ()
     (setf mouse-cb nil))
+
+
+(let ((middle-down-pos ()))
+  (defun mouse-pos-callback (x y)
+    (when middle-down-pos
+      (destructuring-bind (ox oy) middle-down-pos
+	(setf *rot* (* 3 (sqrt (+ (expt (- ox x) 2)
+				  (expt (- oy y) 2))))))))
+  (defun mouse-button-callback (button action)
+    (when (and (eq button :left) (= action 0))
+      (push *current-quad* *emph-quad-list*))
+    (when (eq button :middle)
+      (destructuring-bind (x y) (glfw:get-mouse-pos)
+	(cond
+	  ((= action glfw:+press+)
+	   (setf middle-down-pos (list x y)))
+	  ((= action glfw:+release+) 
+	   (setf *rot*  (mouse-pos-callback x y)
+		 middle-down-pos nil)))))
+    (format t "~a~%" (list button action *current-quad*)))
+  (request-new-mouse-callbacks))
+
   (defun draw ()
     (gl:clear-color .0 .2 .2 1)
     (gl:clear (logior gl:+color-buffer-bit+ gl:+depth-buffer-bit+))
@@ -350,6 +370,11 @@
 			       (append (list mpos) *emph-quad-list*)
 			       *emph-quad-list*)))))))
 
+
+
+
+
+#+nil
 (progn
   (reset-fps-counter)
  (glfw:do-window (:title "bla" :width 512 :height 512)
@@ -359,22 +384,3 @@
      (return-from glfw::do-open-window))
    (draw)))
 
-(let ((middle-down-pos ()))
-  (defun mouse-pos-callback (x y)
-    (when middle-down-pos
-      (destructuring-bind (ox oy) middle-down-pos
-	(setf *rot* (* 3 (sqrt (+ (expt (- ox x) 2)
-				  (expt (- oy y) 2))))))))
-  (defun mouse-button-callback (button action)
-    (when (and (eq button :left) (= action 0))
-      (push *current-quad* *emph-quad-list*))
-    (when (eq button :middle)
-      (destructuring-bind (x y) (glfw:get-mouse-pos)
-	(cond
-	  ((= action glfw:+press+)
-	   (setf middle-down-pos (list x y)))
-	  ((= action glfw:+release+) 
-	   (setf *rot*  (mouse-pos-callback x y)
-		 middle-down-pos nil)))))
-    (format t "~a~%" (list button action *current-quad*)))
-  (request-new-mouse-callbacks))
